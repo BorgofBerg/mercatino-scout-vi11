@@ -418,9 +418,47 @@ function escHtml(str) {
 }
 
 // ── ESPORTAZIONE PDF ─────────────────────────────────────────
-exportPdfBtn.addEventListener('click', () => {
+
+// Carica un'immagine da URL e restituisce base64 (o null se fallisce)
+function loadImageAsBase64(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const size = 60; // dimensione thumbnail nel PDF
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // Crop centrato (object-fit: cover)
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+exportPdfBtn.addEventListener('click', async () => {
   if (items.length === 0) { showToast('Nessun capo da esportare.', 'error'); return; }
+  exportPdfBtn.disabled = true;
+  exportPdfBtn.textContent = '⏳ Generazione…';
+
   try {
+    // Pre-carica tutte le immagini come base64
+    const imageMap = {};
+    const promises = items.map(async item => {
+      if (item.immagine) {
+        imageMap[item.id] = await loadImageAsBase64(item.immagine);
+      }
+    });
+    await Promise.all(promises);
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
@@ -432,9 +470,10 @@ exportPdfBtn.addEventListener('click', () => {
     doc.text('Generato il ' + new Date().toLocaleDateString('it-IT'), 14, 24);
     doc.setTextColor(0);
 
-    // Tabella
+    // Tabella con colonna Foto vuota (le immagini vanno inserite in didDrawCell)
     const rows = items.map((item, idx) => [
       idx + 1,
+      '',  // placeholder per foto
       item.nome,
       item.taglia,
       item.categoria || '—',
@@ -442,17 +481,32 @@ exportPdfBtn.addEventListener('click', () => {
       item.disponibile ? 'Disponibile' : 'Venduto',
     ]);
 
+    const IMG_SIZE = 12; // mm nel PDF
+
     doc.autoTable({
       startY: 30,
-      head: [['#', 'Capo', 'Taglia', 'Categoria', 'Prezzo', 'Stato']],
+      head: [['#', 'Foto', 'Capo', 'Taglia', 'Categoria', 'Prezzo', 'Stato']],
       body: rows,
-      styles: { fontSize: 8, cellPadding: 3 },
+      styles: { fontSize: 8, cellPadding: 3, minCellHeight: IMG_SIZE + 4 },
       headStyles: { fillColor: [108, 99, 255], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 249, 255] },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        4: { halign: 'right', fontStyle: 'bold' },
-        5: { halign: 'center' },
+        1: { cellWidth: IMG_SIZE + 6, halign: 'center' },
+        5: { halign: 'right', fontStyle: 'bold' },
+        6: { halign: 'center' },
+      },
+      didDrawCell: (data) => {
+        // Colonna 1 = Foto, solo body (non header)
+        if (data.column.index === 1 && data.section === 'body') {
+          const item = items[data.row.index];
+          const base64 = item ? imageMap[item.id] : null;
+          if (base64) {
+            const x = data.cell.x + (data.cell.width - IMG_SIZE) / 2;
+            const y = data.cell.y + (data.cell.height - IMG_SIZE) / 2;
+            doc.addImage(base64, 'JPEG', x, y, IMG_SIZE, IMG_SIZE);
+          }
+        }
       },
     });
 
@@ -462,6 +516,9 @@ exportPdfBtn.addEventListener('click', () => {
   } catch (err) {
     remoteLog('Esportazione PDF fallita', { error: err.message });
     showToast('Errore durante l\'esportazione PDF.', 'error');
+  } finally {
+    exportPdfBtn.disabled = false;
+    exportPdfBtn.textContent = '📄 Scarica PDF';
   }
 });
 
