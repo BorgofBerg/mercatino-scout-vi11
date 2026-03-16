@@ -460,5 +460,100 @@ input[type="file"]:hover { border-color: var(--primary); }
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
   .filters-bar { flex-direction: column; }
   .filters-bar select, .filters-bar input { width: 100%; }
-  th, td { padding: .55rem .65rem; }
+
+  /* ── Card layout per la tabella ── */
+  .table-wrapper { border: none; }
+
+  table thead { display: none; }
+
+  table, tbody, tr, td {
+    display: block;
+    width: 100%;
+  }
+
+  tbody tr {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: .75rem;
+    padding: .75rem 1rem;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  tbody tr:hover { background: var(--card); }
+  tbody tr:last-child td { border-bottom: 1px solid var(--border); }
+
+  td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .4rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+  }
+  td:last-child { border-bottom: none; }
+
+  td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: .78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    text-align: left;
+    flex-shrink: 0;
+    margin-right: .75rem;
+  }
+
+  /* Numero riga nascosto su mobile */
+  td[data-label="#"] { display: none; }
+
+  /* Foto centrata in alto nella card */
+  td[data-label="Foto"] {
+    justify-content: center;
+    padding: .5rem 0 .6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  td[data-label="Foto"]::before { display: none; }
+
+  .thumb {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+  }
+  .thumb:hover { transform: none; position: static; }
+
+  .thumb-placeholder {
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
+  }
+
+  /* Descrizione full width su mobile */
+  .descrizione-cell {
+    max-width: none;
+    white-space: normal;
+    text-align: right;
+  }
+
+  /* Azioni centrate in fondo alla card */
+  .actions-cell {
+    justify-content: center !important;
+    padding-top: .6rem !important;
+    gap: .75rem;
+  }
+  .actions-cell::before { display: none; }
+
+  .btn-icon { font-size: 1.25rem; padding: .4rem .65rem; }
+
+  /* Prezzo evidenziato */
+  td[data-label="Prezzo"] {
+    font-size: 1rem;
+  }
+
+  /* Badge stato */
+  td[data-label="Stato"] .badge {
+    font-size: .82rem;
+    padding: .3rem .75rem;
+  }
 }

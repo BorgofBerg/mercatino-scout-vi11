@@ -380,23 +380,23 @@ function renderTable() {
 
   tableBody.innerHTML = filtered.map((item, idx) => `
     <tr class="${item.disponibile ? '' : 'venduto'}">
-      <td>${idx + 1}</td>
-      <td class="foto-cell">
+      <td data-label="#">${idx + 1}</td>
+      <td data-label="Foto" class="foto-cell">
         ${item.immagine
           ? `<img src="${escHtml(item.immagine)}" alt="${escHtml(item.nome)}" class="thumb" />`
           : '<span class="thumb-placeholder">📷</span>'}
       </td>
-      <td><strong>${escHtml(item.nome)}</strong></td>
-      <td>${escHtml(item.taglia)}</td>
-      <td>${escHtml(item.categoria || '—')}</td>
-      <td class="prezzo-cell">€${Number(item.prezzo).toFixed(2)}</td>
-      <td class="descrizione-cell" title="${escHtml(item.descrizione || '')}">${escHtml(item.descrizione || '—')}</td>
-      <td>
+      <td data-label="Capo"><strong>${escHtml(item.nome)}</strong></td>
+      <td data-label="Taglia">${escHtml(item.taglia)}</td>
+      <td data-label="Categoria">${escHtml(item.categoria || '—')}</td>
+      <td data-label="Prezzo" class="prezzo-cell">€${Number(item.prezzo).toFixed(2)}</td>
+      <td data-label="Descrizione" class="descrizione-cell" title="${escHtml(item.descrizione || '')}">${escHtml(item.descrizione || '—')}</td>
+      <td data-label="Stato">
         <span class="badge ${item.disponibile ? 'badge-success' : 'badge-danger'}">
           ${item.disponibile ? '✅ Disponibile' : '❌ Venduto'}
         </span>
       </td>
-      <td class="actions-cell admin-only"${isAdmin ? '' : ' style="display:none"'}>
+      <td data-label="Azioni" class="actions-cell admin-only"${isAdmin ? '' : ' style="display:none"'}>
         <button class="btn-icon toggle"
           title="${item.disponibile ? 'Segna venduto' : 'Segna disponibile'}"
           onclick="toggleDisponibile('${item.id}')">
