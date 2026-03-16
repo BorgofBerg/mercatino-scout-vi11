@@ -2,13 +2,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --primary:   #6c63ff;
-  --primary-d: #574fd6;
+  --primary:   #0d9668;
+  --primary-d: #0a7d56;
   --success:   #28a745;
   --danger:    #e53935;
   --warning:   #f59e0b;
   --info:      #2196f3;
-  --bg:        #f4f5fb;
+  --bg:        #f2f7f5;
   --card:      #ffffff;
   --text:      #1e1e2e;
   --muted:     #6b7280;
@@ -27,13 +27,13 @@ body {
 
 /* ===== HEADER ===== */
 header {
-  background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #1a6fb5 100%);
   color: #fff;
   padding: 0 1.5rem;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 16px rgba(108,99,255,.35);
+  box-shadow: 0 2px 16px rgba(13,150,104,.35);
 }
 
 .header-inner {
@@ -88,7 +88,7 @@ header {
 .btn:active { transform: scale(.97); }
 
 .btn-primary   { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-d); box-shadow: 0 4px 12px rgba(108,99,255,.4); }
+.btn-primary:hover { background: var(--primary-d); box-shadow: 0 4px 12px rgba(13,150,104,.4); }
 
 .btn-secondary { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.4); }
 .btn-secondary:hover { background: rgba(255,255,255,.28); }
@@ -175,7 +175,7 @@ textarea {
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(108,99,255,.15);
+  box-shadow: 0 0 0 3px rgba(13,150,104,.15);
 }
 textarea { resize: vertical; min-height: 72px; }
 
@@ -282,7 +282,7 @@ table {
 }
 
 thead tr {
-  background: #f8f9ff;
+  background: #f0f9f5;
   border-bottom: 2px solid var(--border);
 }
 
@@ -311,7 +311,7 @@ td {
 }
 
 tbody tr { transition: background var(--transition); }
-tbody tr:hover { background: #f8f9ff; }
+tbody tr:hover { background: #f0f9f5; }
 tbody tr:last-child td { border-bottom: none; }
 
 /* row strikethrough se venduto */

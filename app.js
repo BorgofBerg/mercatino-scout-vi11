@@ -488,8 +488,8 @@ exportPdfBtn.addEventListener('click', async () => {
       head: [['#', 'Foto', 'Capo', 'Taglia', 'Categoria', 'Prezzo', 'Stato']],
       body: rows,
       styles: { fontSize: 8, cellPadding: 3, minCellHeight: IMG_SIZE + 4 },
-      headStyles: { fillColor: [108, 99, 255], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 249, 255] },
+      headStyles: { fillColor: [13, 150, 104], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 245] },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: IMG_SIZE + 6, halign: 'center' },
