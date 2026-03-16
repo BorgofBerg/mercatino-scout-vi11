@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mercatino dell'Usato</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- SheetJS per Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- jsPDF + AutoTable per export PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -25,11 +26,7 @@
         <button class="btn btn-secondary btn-sm admin-only" id="logoutBtn">🚪 Esci</button>
       </div>
       <div class="header-actions admin-only">
-        <label class="btn btn-secondary" for="importExcel" title="Importa Excel">
-          📥 Importa Excel
-          <input type="file" id="importExcel" accept=".xlsx,.xls" hidden />
-        </label>
-        <button class="btn btn-primary" id="exportExcel">📤 Esporta Excel</button>
+        <button class="btn btn-primary" id="exportPdf">📄 Scarica PDF</button>
       </div>
     </div>
   </header>
@@ -98,6 +95,15 @@
             <textarea id="descrizione" rows="3" placeholder="Colore, stato, marca, note…"></textarea>
           </div>
 
+          <div class="form-group full-width">
+            <label for="immagine">Foto</label>
+            <input type="file" id="immagine" accept="image/*" />
+            <div id="imgPreview" class="img-preview" style="display:none">
+              <img id="imgPreviewImg" src="" alt="Anteprima" />
+              <button type="button" class="btn btn-ghost btn-sm" id="removeImg">✕ Rimuovi foto</button>
+            </div>
+          </div>
+
           <div class="form-group checkbox-group">
             <label class="toggle-label">
               <input type="checkbox" id="disponibile" checked />
@@ -158,6 +164,7 @@
           <thead>
             <tr>
               <th>#</th>
+              <th>Foto</th>
               <th data-sort="nome">Capo ↕</th>
               <th data-sort="taglia">Taglia ↕</th>
               <th data-sort="categoria">Categoria ↕</th>

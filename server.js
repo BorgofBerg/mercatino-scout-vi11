@@ -12,16 +12,37 @@
 
 const express = require('express');
 const fs      = require('fs').promises;
+const fsSync  = require('fs');
 const path    = require('path');
 const crypto  = require('crypto');
+const multer  = require('multer');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-const DATA_DIR  = path.join(__dirname, 'data');
-const LOGS_DIR  = path.join(__dirname, 'logs');
-const DATA_FILE = path.join(DATA_DIR,  'items.json');
-const LOG_FILE  = path.join(LOGS_DIR,  'app.log');
+const DATA_DIR    = path.join(__dirname, 'data');
+const LOGS_DIR    = path.join(__dirname, 'logs');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const DATA_FILE   = path.join(DATA_DIR,  'items.json');
+const LOG_FILE    = path.join(LOGS_DIR,  'app.log');
+
+// ── Multer — upload immagini ─────────────────────────────────
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, Date.now() + '-' + crypto.randomBytes(4).toString('hex') + ext);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpe?g|png|webp|gif)$/i;
+    if (allowed.test(path.extname(file.originalname))) return cb(null, true);
+    cb(new Error('Solo immagini JPG, PNG, WebP o GIF.'));
+  },
+});
 
 // ── Autenticazione ──────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -32,6 +53,7 @@ const sessions = new Map();
 // ── Middleware ────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(__dirname));   // serve index.html, styles.css, app.js
+app.use('/uploads', express.static(UPLOADS_DIR));  // serve immagini caricate
 
 // cookie parser inline (senza dipendenze npm)
 app.use((req, _res, next) => {
@@ -71,8 +93,16 @@ function requireAdmin(req, res, next) {
 
 // ── Utility: cartelle ─────────────────────────────────────────
 async function ensureDirs() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(LOGS_DIR, { recursive: true });
+  await fs.mkdir(DATA_DIR,    { recursive: true });
+  await fs.mkdir(LOGS_DIR,    { recursive: true });
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+}
+
+// Utility: elimina file immagine (se esiste)
+async function deleteImage(imgPath) {
+  if (!imgPath) return;
+  const fullPath = path.join(__dirname, imgPath);
+  try { await fs.unlink(fullPath); } catch {}
 }
 
 // ── Utility: log su file ──────────────────────────────────────
@@ -152,13 +182,18 @@ app.get('/api/items', async (_req, res) => {
   }
 });
 
-// POST /api/items — aggiunge un capo
-app.post('/api/items', requireAdmin, async (req, res) => {
+// POST /api/items — aggiunge un capo (con immagine opzionale)
+app.post('/api/items', requireAdmin, upload.single('immagine'), async (req, res) => {
   try {
     const item = req.body;
     if (!item || !item.nome || !item.taglia) {
       return res.status(400).json({ error: 'Campi obbligatori mancanti (nome, taglia).' });
     }
+    // Converti stringhe "true"/"false" da FormData
+    if (typeof item.disponibile === 'string') item.disponibile = item.disponibile === 'true';
+    if (typeof item.prezzo === 'string') item.prezzo = parseFloat(item.prezzo) || 0;
+    // Immagine
+    item.immagine = req.file ? '/uploads/' + req.file.filename : '';
     const items = await readItems();
     items.unshift(item);
     await writeItems(items);
@@ -170,31 +205,22 @@ app.post('/api/items', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/items/bulk — importazione multipla (da Excel)
-app.post('/api/items/bulk', requireAdmin, async (req, res) => {
-  try {
-    const newItems = req.body;
-    if (!Array.isArray(newItems) || newItems.length === 0) {
-      return res.status(400).json({ error: 'Array di capi atteso.' });
-    }
-    const items = await readItems();
-    items.unshift(...newItems);
-    await writeItems(items);
-    await log('INFO', `Importazione bulk: ${newItems.length} capi aggiunti`);
-    res.status(201).json({ added: newItems.length });
-  } catch (err) {
-    await log('ERROR', 'Importazione bulk fallita', { error: err.message });
-    res.status(500).json({ error: "Errore nell'importazione." });
-  }
-});
-
-// PUT /api/items/:id — modifica un capo
-app.put('/api/items/:id', requireAdmin, async (req, res) => {
+// PUT /api/items/:id — modifica un capo (con immagine opzionale)
+app.put('/api/items/:id', requireAdmin, upload.single('immagine'), async (req, res) => {
   try {
     const items = await readItems();
     const idx   = items.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ error: 'Capo non trovato.' });
-    items[idx] = { ...items[idx], ...req.body };
+    const patch = req.body;
+    // Converti stringhe "true"/"false" da FormData
+    if (typeof patch.disponibile === 'string') patch.disponibile = patch.disponibile === 'true';
+    if (typeof patch.prezzo === 'string') patch.prezzo = parseFloat(patch.prezzo) || 0;
+    // Se c'è una nuova immagine, elimina la vecchia
+    if (req.file) {
+      await deleteImage(items[idx].immagine);
+      patch.immagine = '/uploads/' + req.file.filename;
+    }
+    items[idx] = { ...items[idx], ...patch };
     await writeItems(items);
     await log('INFO', 'Capo modificato', { id: req.params.id, nome: items[idx].nome });
     res.json(items[idx]);
@@ -204,12 +230,14 @@ app.put('/api/items/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/items/:id — elimina un capo
+// DELETE /api/items/:id — elimina un capo (e la sua immagine)
 app.delete('/api/items/:id', requireAdmin, async (req, res) => {
   try {
     let items = await readItems();
     const target = items.find(i => i.id === req.params.id);
     if (!target) return res.status(404).json({ error: 'Capo non trovato.' });
+    // Elimina immagine dal disco
+    await deleteImage(target.immagine);
     items = items.filter(i => i.id !== req.params.id);
     await writeItems(items);
     await log('INFO', 'Capo eliminato', { id: req.params.id, nome: target.nome });

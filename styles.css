@@ -394,6 +394,59 @@ tbody tr.venduto td:not(.actions-cell) { opacity: .55; }
 .toast.success { background: var(--success); }
 .toast.error   { background: var(--danger); }
 
+/* ===== IMAGE PREVIEW & THUMBNAIL ===== */
+.img-preview {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-top: .5rem;
+}
+.img-preview img {
+  max-width: 180px;
+  max-height: 140px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+
+.foto-cell { text-align: center; }
+
+.thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform .2s;
+}
+.thumb:hover { transform: scale(2.5); z-index: 10; position: relative; }
+
+.thumb-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  font-size: 1.2rem;
+  opacity: .5;
+}
+
+input[type="file"] {
+  padding: .5rem;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  background: #fafbff;
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--muted);
+}
+input[type="file"]:hover { border-color: var(--primary); }
+
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn    { from { opacity:0 } to { opacity:1 } }
 @keyframes slideUp   { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }

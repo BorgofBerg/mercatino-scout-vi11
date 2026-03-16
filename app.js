@@ -31,8 +31,11 @@ const deleteModal  = document.getElementById('deleteModal');
 const confirmDel   = document.getElementById('confirmDelete');
 const cancelDel    = document.getElementById('cancelDelete');
 const toast        = document.getElementById('toast');
-const importExcel  = document.getElementById('importExcel');
-const exportBtn    = document.getElementById('exportExcel');
+const exportPdfBtn = document.getElementById('exportPdf');
+const imgInput     = document.getElementById('immagine');
+const imgPreview   = document.getElementById('imgPreview');
+const imgPreviewImg= document.getElementById('imgPreviewImg');
+const removeImgBtn = document.getElementById('removeImg');
 const statusDot    = document.getElementById('statusDot');
 const statusText   = document.getElementById('statusText');
 const loginBtn     = document.getElementById('loginBtn');
@@ -72,8 +75,11 @@ function setStatus(online) {
 
 // ── API helpers ───────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
+  // Non impostare Content-Type per FormData (il browser lo gestisce)
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
   const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   });
   if (!res.ok) {
@@ -115,19 +121,27 @@ async function loadItems() {
 }
 
 // ── Persistenza (API o localStorage) ─────────────────────────
-async function persistAdd(item) {
+async function persistAdd(item, imageFile) {
   if (serverOnline) {
-    await apiFetch('/items', { method: 'POST', body: JSON.stringify(item) });
+    const fd = new FormData();
+    Object.entries(item).forEach(([k, v]) => fd.append(k, v));
+    if (imageFile) fd.append('immagine', imageFile);
+    const saved = await apiFetch('/items', { method: 'POST', body: fd });
+    item.immagine = saved.immagine || '';
   }
   items.unshift(item);
   lsSave(items);
 }
 
-async function persistUpdate(id, patch) {
+async function persistUpdate(id, patch, imageFile) {
   const idx = items.findIndex(i => i.id === id);
   if (idx === -1) return;
   if (serverOnline) {
-    await apiFetch(`/items/${id}`, { method: 'PUT', body: JSON.stringify(patch) });
+    const fd = new FormData();
+    Object.entries(patch).forEach(([k, v]) => fd.append(k, v));
+    if (imageFile) fd.append('immagine', imageFile);
+    const saved = await apiFetch(`/items/${id}`, { method: 'PUT', body: fd });
+    patch.immagine = saved.immagine || items[idx].immagine || '';
   }
   items[idx] = { ...items[idx], ...patch };
   lsSave(items);
@@ -138,14 +152,6 @@ async function persistDelete(id) {
     await apiFetch(`/items/${id}`, { method: 'DELETE' });
   }
   items = items.filter(i => i.id !== id);
-  lsSave(items);
-}
-
-async function persistBulk(newItems) {
-  if (serverOnline) {
-    await apiFetch('/items/bulk', { method: 'POST', body: JSON.stringify(newItems) });
-  }
-  items.unshift(...newItems);
   lsSave(items);
 }
 
@@ -166,17 +172,20 @@ form.addEventListener('submit', async e => {
 
   submitBtn.disabled = true;
 
+  const imageFile = imgInput.files[0] || null;
+
   try {
     if (editingId) {
-      await persistUpdate(editingId, { nome, taglia, prezzo, categoria, descrizione, disponibile });
+      await persistUpdate(editingId, { nome, taglia, prezzo, categoria, descrizione, disponibile }, imageFile);
       showToast('✏️ Capo aggiornato!', 'success');
       stopEditing();
     } else {
-      await persistAdd({ id: genId(), nome, taglia, prezzo, categoria, descrizione, disponibile });
+      await persistAdd({ id: genId(), nome, taglia, prezzo, categoria, descrizione, disponibile }, imageFile);
       showToast('✅ Capo aggiunto!', 'success');
     }
     renderTable();
     form.reset();
+    clearImgPreview();
     document.getElementById('disponibile').checked = true;
   } catch (err) {
     await remoteLog('Salvataggio capo fallito', { error: err.message, nome });
@@ -190,6 +199,7 @@ form.addEventListener('submit', async e => {
 cancelBtn.addEventListener('click', () => {
   stopEditing();
   form.reset();
+  clearImgPreview();
   document.getElementById('disponibile').checked = true;
 });
 
@@ -198,7 +208,28 @@ function stopEditing() {
   formTitle.textContent  = '➕ Aggiungi Capo';
   submitBtn.textContent  = '➕ Aggiungi';
   cancelBtn.style.display = 'none';
+  clearImgPreview();
 }
+
+// ── Preview immagine nel form ────────────────────────────────
+function clearImgPreview() {
+  imgPreview.style.display = 'none';
+  imgPreviewImg.src = '';
+  imgInput.value = '';
+}
+
+imgInput.addEventListener('change', () => {
+  const file = imgInput.files[0];
+  if (!file) { clearImgPreview(); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    imgPreviewImg.src = e.target.result;
+    imgPreview.style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+});
+
+removeImgBtn.addEventListener('click', clearImgPreview);
 
 // ── Modifica capo ─────────────────────────────────────────────
 window.editItem = function(id) {
@@ -211,6 +242,13 @@ window.editItem = function(id) {
   document.getElementById('categoria').value    = item.categoria || '';
   document.getElementById('descrizione').value  = item.descrizione || '';
   document.getElementById('disponibile').checked = item.disponibile;
+  // Mostra immagine esistente
+  if (item.immagine) {
+    imgPreviewImg.src = item.immagine;
+    imgPreview.style.display = 'flex';
+  } else {
+    clearImgPreview();
+  }
   formTitle.textContent  = '✏️ Modifica Capo';
   submitBtn.textContent  = '💾 Salva modifiche';
   cancelBtn.style.display = 'inline-flex';
@@ -343,6 +381,11 @@ function renderTable() {
   tableBody.innerHTML = filtered.map((item, idx) => `
     <tr class="${item.disponibile ? '' : 'venduto'}">
       <td>${idx + 1}</td>
+      <td class="foto-cell">
+        ${item.immagine
+          ? `<img src="${escHtml(item.immagine)}" alt="${escHtml(item.nome)}" class="thumb" />`
+          : '<span class="thumb-placeholder">📷</span>'}
+      </td>
       <td><strong>${escHtml(item.nome)}</strong></td>
       <td>${escHtml(item.taglia)}</td>
       <td>${escHtml(item.categoria || '—')}</td>
@@ -374,76 +417,52 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── ESPORTAZIONE EXCEL ────────────────────────────────────────
-exportBtn.addEventListener('click', () => {
+// ── ESPORTAZIONE PDF ─────────────────────────────────────────
+exportPdfBtn.addEventListener('click', () => {
   if (items.length === 0) { showToast('Nessun capo da esportare.', 'error'); return; }
   try {
-    const data = items.map((item, idx) => ({
-      '#':           idx + 1,
-      'Capo':        item.nome,
-      'Taglia':      item.taglia,
-      'Categoria':   item.categoria || '',
-      'Prezzo (€)':  Number(item.prezzo).toFixed(2),
-      'Descrizione': item.descrizione || '',
-      'Stato':       item.disponibile ? 'Disponibile' : 'Venduto',
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [{ wch:5 }, { wch:22 }, { wch:14 }, { wch:14 }, { wch:12 }, { wch:38 }, { wch:14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Mercatino');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Titolo
+    doc.setFontSize(16);
+    doc.text('Mercatino dell\'Usato — Gruppo Scout VI11', 14, 18);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text('Generato il ' + new Date().toLocaleDateString('it-IT'), 14, 24);
+    doc.setTextColor(0);
+
+    // Tabella
+    const rows = items.map((item, idx) => [
+      idx + 1,
+      item.nome,
+      item.taglia,
+      item.categoria || '—',
+      '\u20AC ' + Number(item.prezzo).toFixed(2),
+      item.disponibile ? 'Disponibile' : 'Venduto',
+    ]);
+
+    doc.autoTable({
+      startY: 30,
+      head: [['#', 'Capo', 'Taglia', 'Categoria', 'Prezzo', 'Stato']],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [108, 99, 255], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 249, 255] },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        4: { halign: 'right', fontStyle: 'bold' },
+        5: { halign: 'center' },
+      },
+    });
+
     const date = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `mercatino_${date}.xlsx`);
-    showToast('📤 File Excel esportato!', 'success');
+    doc.save(`mercatino_${date}.pdf`);
+    showToast('📄 PDF scaricato!', 'success');
   } catch (err) {
-    remoteLog('Esportazione Excel fallita', { error: err.message });
-    showToast('Errore durante l\'esportazione.', 'error');
+    remoteLog('Esportazione PDF fallita', { error: err.message });
+    showToast('Errore durante l\'esportazione PDF.', 'error');
   }
-});
-
-// ── IMPORTAZIONE EXCEL ────────────────────────────────────────
-importExcel.addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async evt => {
-    try {
-      const wb   = XLSX.read(evt.target.result, { type: 'binary' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-
-      const parsed = [];
-      rows.forEach(row => {
-        const nome      = (row['Capo']        || row['capo']  || row['nome']  || '').toString().trim();
-        const taglia    = (row['Taglia']      || row['taglia']                || '').toString().trim();
-        const prezzo    = parseFloat(row['Prezzo (€)'] || row['prezzo']  || row['Prezzo'] || 0);
-        const categoria = (row['Categoria']   || row['categoria']             || '').toString().trim();
-        const descr     = (row['Descrizione'] || row['descrizione']           || '').toString().trim();
-        const statoRaw  = (row['Stato']       || row['stato'] || 'disponibile').toString().toLowerCase().trim();
-        const disponibile = !['venduto', 'no', 'false', '0'].includes(statoRaw);
-        if (!nome || !taglia) return;
-        parsed.push({ id: genId(), nome, taglia, prezzo: isNaN(prezzo) ? 0 : prezzo, categoria, descrizione: descr, disponibile });
-      });
-
-      if (parsed.length === 0) {
-        showToast('Nessun capo valido trovato nel file.', 'error');
-        return;
-      }
-
-      await persistBulk(parsed);
-      renderTable();
-      showToast(`📥 Importati ${parsed.length} capi!`, 'success');
-    } catch (err) {
-      await remoteLog('Importazione Excel fallita', { error: err.message, file: file.name });
-      showToast('Errore nella lettura del file Excel.', 'error');
-    }
-    importExcel.value = '';
-  };
-  reader.onerror = async () => {
-    await remoteLog('Lettura file Excel fallita', { file: file.name });
-    showToast('Impossibile leggere il file.', 'error');
-    importExcel.value = '';
-  };
-  reader.readAsBinaryString(file);
 });
 
 // ── AUTENTICAZIONE ───────────────────────────────────────────
