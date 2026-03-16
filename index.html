@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mercatino dell'Usato</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- SheetJS per Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-group">
+        <span class="logo">🏷️ Mercatino dell'Usato</span>
+        <span class="logo-subtitle">Gruppo Scout VI11</span>
+        <span class="server-status">
+          <span class="status-dot offline" id="statusDot"></span>
+          <span class="status-text" id="statusText">Connessione…</span>
+        </span>
+      </div>
+      <div class="auth-controls">
+        <button class="btn btn-secondary btn-sm" id="loginBtn">🔑 Admin</button>
+        <button class="btn btn-secondary btn-sm admin-only" id="logoutBtn">🚪 Esci</button>
+      </div>
+      <div class="header-actions admin-only">
+        <label class="btn btn-secondary" for="importExcel" title="Importa Excel">
+          📥 Importa Excel
+          <input type="file" id="importExcel" accept=".xlsx,.xls" hidden />
+        </label>
+        <button class="btn btn-primary" id="exportExcel">📤 Esporta Excel</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- FORM INSERIMENTO -->
+    <section class="card form-card admin-only">
+      <h2 id="formTitle">➕ Aggiungi Capo</h2>
+      <form id="itemForm" autocomplete="off">
+        <input type="hidden" id="editId" />
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="nome">Capo <span class="required">*</span></label>
+            <input type="text" id="nome" placeholder="es. Maglione, Jeans, Giacca…" required />
+          </div>
+
+          <div class="form-group">
+            <label for="taglia">Taglia <span class="required">*</span></label>
+            <select id="taglia" required>
+              <option value="">— Seleziona —</option>
+              <optgroup label="Lettere">
+                <option>XS</option><option>S</option><option>M</option>
+                <option>L</option><option>XL</option><option>XXL</option>
+              </optgroup>
+              <optgroup label="Numeri adulto">
+                <option>36</option><option>38</option><option>40</option>
+                <option>42</option><option>44</option><option>46</option>
+                <option>48</option><option>50</option><option>52</option>
+                <option>54</option><option>56</option>
+              </optgroup>
+              <optgroup label="Bambino/a">
+                <option>0-3 mesi</option><option>3-6 mesi</option>
+                <option>6-12 mesi</option><option>12-18 mesi</option>
+                <option>18-24 mesi</option><option>2 anni</option>
+                <option>3 anni</option><option>4 anni</option>
+                <option>5 anni</option><option>6 anni</option>
+                <option>7 anni</option><option>8 anni</option>
+                <option>9 anni</option><option>10 anni</option>
+                <option>11 anni</option><option>12 anni</option>
+                <option>TU</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="prezzo">Prezzo (€) <span class="required">*</span></label>
+            <input type="number" id="prezzo" min="0" step="0.50" placeholder="0.00" required />
+          </div>
+
+          <div class="form-group">
+            <label for="categoria">Categoria</label>
+            <select id="categoria">
+              <option value="">— Tutte —</option>
+              <option>Donna</option>
+              <option>Uomo</option>
+              <option>Bambino/a</option>
+              <option>Accessori</option>
+              <option>Altro</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="descrizione">Descrizione</label>
+            <textarea id="descrizione" rows="3" placeholder="Colore, stato, marca, note…"></textarea>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="disponibile" checked />
+              <span class="toggle-slider"></span>
+              Disponibile
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="submitBtn">➕ Aggiungi</button>
+          <button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none">✕ Annulla</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- FILTRI E RICERCA -->
+    <section class="filters-bar">
+      <input type="search" id="searchInput" placeholder="🔍 Cerca per nome, taglia, descrizione…" />
+      <select id="filterCategoria">
+        <option value="">Tutte le categorie</option>
+        <option>Donna</option><option>Uomo</option>
+        <option>Bambino/a</option><option>Accessori</option><option>Altro</option>
+      </select>
+      <select id="filterDisponibile">
+        <option value="">Tutti gli stati</option>
+        <option value="si">✅ Disponibile</option>
+        <option value="no">❌ Venduto</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="clearFilters">✕ Reset</button>
+    </section>
+
+    <!-- STATISTICHE -->
+    <section class="stats-bar admin-only">
+      <div class="stat">
+        <span class="stat-value" id="statTotale">0</span>
+        <span class="stat-label">Totale capi</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value green" id="statDisponibili">0</span>
+        <span class="stat-label">Disponibili</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value red" id="statVenduti">0</span>
+        <span class="stat-label">Venduti</span>
+      </div>
+
+    </section>
+
+    <!-- TABELLA CAPI -->
+    <section class="card table-card">
+      <div class="table-header">
+        <h2>📋 Elenco Capi</h2>
+        <span id="countLabel" class="count-label"></span>
+      </div>
+      <div class="table-wrapper">
+        <table id="itemsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th data-sort="nome">Capo ↕</th>
+              <th data-sort="taglia">Taglia ↕</th>
+              <th data-sort="categoria">Categoria ↕</th>
+              <th data-sort="prezzo">Prezzo ↕</th>
+              <th>Descrizione</th>
+              <th data-sort="disponibile">Stato ↕</th>
+              <th class="admin-only">Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- righe generate da JS -->
+          </tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <p>🏷️ Nessun capo trovato.<span class="admin-only"> Aggiungine uno!</span></p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL CONFERMA ELIMINAZIONE -->
+  <div id="deleteModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <h3>Conferma eliminazione</h3>
+      <p>Vuoi davvero eliminare questo capo?</p>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="confirmDelete">Elimina</button>
+        <button class="btn btn-ghost" id="cancelDelete">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN -->
+  <div id="loginModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <h3>🔑 Accesso Amministratore</h3>
+      <form id="loginForm" autocomplete="off">
+        <div class="login-field">
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" required />
+        </div>
+        <div class="login-field">
+          <label for="loginPass">Password</label>
+          <input type="password" id="loginPass" required />
+        </div>
+        <p id="loginError" class="login-error"></p>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Accedi</button>
+          <button type="button" class="btn btn-ghost" id="cancelLogin">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICHE -->
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
